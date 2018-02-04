@@ -21,6 +21,52 @@ var bullets;
 var fireRate = 100;
 var nextFire = 0;
 
+//
+
+var ready = false;
+var eurecaServer;
+//this function will handle client communication with the server
+//
+
+var eurecaClientSetup = function() {
+	//create an instance of eureca.io client
+	var eurecaClient = new Eureca.Client();
+	
+	eurecaClient.ready(function (proxy) {		
+		eurecaServer = proxy;
+	});
+	
+	
+	//methods defined under "exports" namespace become available in the server side
+	
+	eurecaClient.exports.setId = function(id) 
+	{
+		//create() is moved here to make sure nothing is created before uniq id assignation
+		myId = id;
+		create();
+		eurecaServer.handshake();
+		ready = true;
+	}	
+	
+	eurecaClient.exports.kill = function(id)
+	{	
+		if (tanksList[id]) {
+			tanksList[id].kill();
+			console.log('killing ', id, tanksList[id]);
+		}
+	}	
+	
+	eurecaClient.exports.spawnEnemy = function(i, x, y)
+	{
+		
+		if (i == myId) return; //this is me
+		
+		console.log('SPAWN');
+		var tnk = new Tank(i, game, tank);
+		tanksList[i] = tnk;
+	}
+	
+}
 
 Tank = function (index, game, player) {
 	this.cursor = {
@@ -151,7 +197,7 @@ Tank.prototype.kill = function() {
 	this.shadow.kill();
 }
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, 'phaser-example', { preload: preload, create: create, update: update, render: render });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'phaser-example', { preload: preload, create: eurecaClientSetup, update: update, render: render });
 
 function preload () {
 
@@ -159,7 +205,7 @@ function preload () {
     game.load.atlas('enemy', 'assets/enemy-tanks.png', 'assets/tanks.json');
     game.load.image('logo', 'assets/logo.png');
     game.load.image('bullet', 'assets/bullet.png');
-    game.load.image('earth', 'assets/scorched_earth.png');
+    game.load.image('earth', 'assets/light_grass.png');
     game.load.spritesheet('kaboom', 'assets/explosion.png', 64, 64, 23);
     
 }
@@ -220,7 +266,10 @@ function removeLogo () {
     logo.kill();
 }
 
+
 function update () {
+	//do not update if client not ready
+	if (!ready) return;
 	
 	player.input.left = cursors.left.isDown;
 	player.input.right = cursors.right.isDown;
